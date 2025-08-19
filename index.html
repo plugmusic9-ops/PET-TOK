@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetTok - Shop</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <img src="https://via.placeholder.com/150x50?text=PetTok" alt="Logo PetTok">
+        <h1>PetTok</h1>
+    </header>
+    <main>
+        <section class="products">
+            <!-- products rendered by JS -->
+        </section>
+        <section id="cart">
+            <h2>Carrello</h2>
+            <ul id="cart-items"></ul>
+            <p>Totale: <span id="total">0.00</span>€</p>
+            <form id="order-form">
+                <label for="pet-name">Nome del cane:</label>
+                <input type="text" id="pet-name" name="pet-name" required>
+                <label for="phone">Numero di telefono:</label>
+                <input type="tel" id="phone" name="phone" required>
+                <button type="submit">Prenota</button>
+            </form>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
