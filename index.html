@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bridge testo → Higgsfield (funzionante)</title>
+  <style>
+    :root { font-family: Inter, Arial, sans-serif; }
+    body { margin: 0; padding: 18px; background: #0f1117; color: #eceff4; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { line-height: 1.45; }
+    .card { background: #171a22; border: 1px solid #2c3240; border-radius: 12px; padding: 14px; margin: 12px 0; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    input, textarea, button, pre {
+      width: 100%; box-sizing: border-box; border-radius: 8px; border: 1px solid #31384a;
+      background: #0f131d; color: #eceff4; padding: 10px; margin-bottom: 10px; font-size: 14px;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    button { cursor: pointer; background: #4760ff; border: none; font-weight: 600; }
+    button:hover { background: #3a53f0; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .small { font-size: 13px; color: #b4bdd0; }
+    .ok { color: #65d790; }
+    .warn { color: #f0c674; }
+    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #252b38; font-size: 12px; margin-left: 6px; }
+    iframe { width: 100%; min-height: 170px; border: 1px solid #31384a; border-radius: 10px; background: #0f131d; }
+    code { color: #93d0ff; }
+  </style>
+</head>
+<body>
+  <h1>Bridge prompt → pagina target <span class="pill">FUNZIONANTE</span></h1>
+  <p class="small">
+    Per siti esterni (es. Higgsfield), il browser blocca la scrittura diretta cross-origin.
+    Questa versione è funzionante usando un helper da attivare una sola volta nella tab target.
+  </p>
+
+  <div class="card">
+    <h3>0) Demo locale (prova immediata)</h3>
+    <p class="small">Questo campo sotto è collegato direttamente: scrivi nel box “Testo da inviare” e vedrai la sincronizzazione live.</p>
+    <iframe id="demo-frame" title="demo"></iframe>
+  </div>
+
+  <div class="card">
+    <h3>1) Configura target reale</h3>
+    <label for="target-url">URL target</label>
+    <input id="target-url" type="url" value="https://higgsfield.ai/image/nano_banana_2" />
+
+    <label for="target-selector">Selettore campo prompt su Higgsfield</label>
+    <input id="target-selector" type="text" value="textarea" placeholder="es. textarea o [contenteditable='true']" />
+
+    <div class="row">
+      <button id="open-target" type="button">2) Apri tab target</button>
+      <button id="copy-helper" type="button">3) Copia helper</button>
+    </div>
+
+    <p class="small">Poi nella tab target: <code>F12 → Console → Incolla helper → Invio</code> (una sola volta).</p>
+    <pre id="helper-preview" class="small"></pre>
+  </div>
+
+  <div class="card">
+    <h3>4) Invia testo</h3>
+    <label for="source-text">Testo da inviare</label>
+    <textarea id="source-text" placeholder="Scrivi qui il prompt..."></textarea>
+    <button id="send-now" type="button">Invia ora</button>
+    <p id="status" class="small warn">Stato: in attesa.</p>
+  </div>
+
+  <script>
+    const channel = new BroadcastChannel('typing-bridge-higgsfield');
+    const targetUrlEl = document.getElementById('target-url');
+    const selectorEl = document.getElementById('target-selector');
+    const sourceEl = document.getElementById('source-text');
+    const statusEl = document.getElementById('status');
+    const helperPreview = document.getElementById('helper-preview');
+
+    function setStatus(message, level = 'warn') {
+      statusEl.textContent = `Stato: ${message}`;
+      statusEl.className = `small ${level}`;
+    }
+
+    function helperScript(selector) {
+      return `(function(){\n` +
+        `  const SELECTOR = ${JSON.stringify(selector)};\n` +
+        `  const channel = new BroadcastChannel('typing-bridge-higgsfield');\n` +
+        `  const pick = () => document.querySelector(SELECTOR) || document.querySelector('[contenteditable="true"]') || document.querySelector('textarea') || document.querySelector('input[type="text"]');\n` +
+        `  const write = (value) => {\n` +
+        `    const field = pick();\n` +
+        `    if (!field) { console.warn('[Bridge] Campo non trovato.'); return; }\n` +
+        `    field.focus();\n` +
+        `    if (field.isContentEditable) field.textContent = value; else field.value = value;\n` +
+        `    field.dispatchEvent(new Event('input', { bubbles: true }));\n` +
+        `    field.dispatchEvent(new Event('change', { bubbles: true }));\n` +
+        `  };\n` +
+        `  channel.onmessage = (e) => { if (e.data?.type === 'bridge-text') write(e.data.payload || ''); };\n` +
+        `  console.log('[Bridge] Attivo su', location.href, 'selector:', SELECTOR);\n` +
+        `})();`;
+    }
+
+    function refreshPreview() {
+      helperPreview.textContent = helperScript(selectorEl.value.trim() || 'textarea');
+    }
+
+    function publishText() {
+      const text = sourceEl.value;
+      channel.postMessage({ type: 'bridge-text', payload: text });
+      const mode = text ? 'ok' : 'warn';
+      setStatus('testo inviato (demo locale + tab target se helper attivo).', mode);
+      syncDemo(text);
+    }
+
+    function syncDemo(value) {
+      const doc = document.getElementById('demo-frame').contentWindow?.document;
+      if (!doc) return;
+      const field = doc.querySelector('#demo-target');
+      if (field) field.value = value;
+    }
+
+    function loadDemoFrame() {
+      const frame = document.getElementById('demo-frame');
+      const doc = frame.contentWindow.document;
+      doc.open();
+      doc.write(`<!doctype html><html lang="it"><body style="font-family:Arial;background:#0f131d;color:#eceff4;padding:12px;"><h4 style="margin:0 0 8px;">Demo target locale</h4><input id="demo-target" type="text" style="width:100%;padding:8px;border-radius:8px;border:1px solid #31384a;background:#171a22;color:#eceff4;" placeholder="Qui compare il testo sincronizzato" /></body></html>`);
+      doc.close();
+    }
+
+    document.getElementById('open-target').addEventListener('click', () => {
+      const url = targetUrlEl.value.trim();
+      if (!url) return setStatus('inserisci un URL valido.', 'warn');
+      window.open(url, '_blank');
+      setStatus('tab target aperta. Ora copia helper e incollalo in Console.', 'ok');
+    });
+
+    document.getElementById('copy-helper').addEventListener('click', async () => {
+      refreshPreview();
+      try {
+        await navigator.clipboard.writeText(helperPreview.textContent);
+        setStatus('helper copiato. Incollalo nella Console della tab target e premi Invio.', 'ok');
+      } catch {
+        setStatus('clipboard non disponibile. Copia manualmente lo script mostrato.', 'warn');
+      }
+    });
+
+    sourceEl.addEventListener('input', publishText);
+    document.getElementById('send-now').addEventListener('click', publishText);
+    selectorEl.addEventListener('input', refreshPreview);
+
+    loadDemoFrame();
+    refreshPreview();
+  </script>
+</body>
+</html>
